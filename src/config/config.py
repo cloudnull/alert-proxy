@@ -19,17 +19,29 @@ class Config:
             cls._instance._load_config() # Load configuration only once
         return cls._instance
 
+    def _resolve_env(self, value):
+        """Recursively replace environment variable placeholders in the config."""
+        if isinstance(value, str):
+            return os.path.expandvars(value)
+        if isinstance(value, dict):
+            return {k: self._resolve_env(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [self._resolve_env(v) for v in value]
+        return value
+
     def _load_config(self, filename="config.yaml"):
         """Loads configuration from a YAML file and processes it."""
         try:
             with open(filename, "r") as file:
-                config_data = yaml.safe_load(file)
+                raw_data = yaml.safe_load(file) or {}
         except FileNotFoundError:
             print(f"Error: Configuration file '{filename}' not found.")
-            config_data = {}  # Provide an empty dict if file not found
+            raw_data = {}  # Provide an empty dict if file not found
         except yaml.YAMLError as e:
             print(f"Error parsing YAML file '{filename}': {e}")
-            config_data = {}
+            raw_data = {}
+
+        config_data = self._resolve_env(raw_data)
 
         # Set attributes based on config_data
         for key, value in config_data.items():
